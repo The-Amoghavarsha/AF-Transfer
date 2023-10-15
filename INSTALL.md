@@ -2,10 +2,7 @@
 
 ```
 bash
-curl
 zenity
-sed
-awk
 except
 ```
 
