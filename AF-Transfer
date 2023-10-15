@@ -1,0 +1,63 @@
+#!/bin/bash
+
+select_private_key() {
+  private_keys=("$HOME/.ssh/"*)
+
+  selected_key=$(zenity --list --title "Select Private Key" --column "Private Key" "${private_keys[@]}")
+
+  if [ -z "$selected_key" ]; then
+    zenity --info --title "Canceled" --text "File transfer canceled."
+    exit 0
+  fi
+
+  if [ ! -f "$selected_key" ]; then
+    zenity --error --title "Error" --text "Selected private key file does not exist."
+    exit 1
+  fi
+
+  echo "Private Key: $selected_key" > ~/.scp_config
+  private_key="$selected_key"
+}
+
+select_private_key
+
+destination_file="$HOME/.scp_destinations"
+saved_destinations=()
+if [ -f "$destination_file" ]; then
+  while read -r destination; do
+    saved_destinations+=("$destination")
+  done < "$destination_file"
+fi
+
+options=("Enter New Destination" "${saved_destinations[@]}")
+
+destination=$(zenity --list --title "Select Destination" --column "Saved Destinations" "${options[@]}")
+
+if [ "$destination" == "Enter New Destination" ]; then
+  new_destination=$(zenity --entry --title "Destination" --text "Enter the destination (e.g., unknown@192.168.0.103:/home/unknown):")
+  
+  # Check if the new_destination is empty (user pressed Cancel or provided no input)
+  if [ -z "$new_destination" ]; then
+    zenity --info --title "Canceled" --text "File transfer canceled."
+    exit 0
+  else
+    echo "$new_destination" >> "$destination_file"
+    destination="$new_destination"
+  fi
+fi
+
+source_path=$(zenity --file-selection --title "Select Source File or Directory")
+
+if [ ! -e "$source_path" ]; then
+  zenity --error --title "Error" --text "Source path '$source_path' does not exist."
+  exit 1
+fi
+
+scp -i "$private_key" -r "$source_path" "$destination"
+
+if [ $? -eq 0 ]; then
+  zenity --info --title "Success" --text "File has been successfully transferred."
+else
+  zenity --error --title "Error" --text "File transfer failed."
+fi
+
